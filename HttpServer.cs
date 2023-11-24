@@ -72,8 +72,6 @@ public class HttpServer
             }
 
             await res.CopyToAsync(ctx.OutputStream);
-
-            await Task.Delay(1000);
         }
     }
 
