@@ -42,4 +42,10 @@ internal static class IOHelper
 
         return Task.FromResult(buf.ToString());
     }
+
+    public static async ValueTask WriteHttpLineAsync(this Stream s, string str = "")
+    {
+        var buf = Encoding.ASCII.GetBytes(str + "\r\n");
+        await s.WriteAsync(buf);
+    }
 }

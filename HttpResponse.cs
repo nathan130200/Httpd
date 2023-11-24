@@ -1,6 +1,5 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 
 namespace Httpd.Impl;
 
@@ -31,11 +30,11 @@ public class HttpResponse : IDisposable
         set
         {
             if ((_content = value) is not null)
-                SyncHeaders(Headers, _content.Headers);
+                MergeHeaders(Headers, _content.Headers);
         }
     }
 
-    void SyncHeaders(Dictionary<string, string> source, HttpContentHeaders headers)
+    static void MergeHeaders(Dictionary<string, string> source, HttpContentHeaders headers)
     {
         foreach (var (key, values) in headers)
             source[key.ToLowerInvariant()] = string.Join(';', values);
@@ -43,7 +42,7 @@ public class HttpResponse : IDisposable
 
     public Dictionary<string, string> Headers { get; } = new()
     {
-        ["server"] = ".NET Http Server",
+        ["server"] = "Httpd/1.0",
         ["date"] = DateTime.Now.ToString("F"),
         ["connection"] = "close"
     };
@@ -83,20 +82,14 @@ public class HttpResponse : IDisposable
 
     public async Task CopyToAsync(Stream s)
     {
-        await WriteLineAsync(s, $"{Version} {(int)Code}");
+        await s.WriteHttpLineAsync($"{Version} {(int)Code}");
 
         foreach (var header in Headers.DistinctBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
-            await WriteLineAsync(s, $"{header.Key}: {header.Value}");
+            await s.WriteHttpLineAsync($"{header.Key}: {header.Value}");
 
-        await WriteLineAsync(s);
+        await s.WriteHttpLineAsync();
 
         if (Content != null)
             await Content.CopyToAsync(s);
-    }
-
-    static async ValueTask WriteLineAsync(Stream dest, string str = "")
-    {
-        var buf = Encoding.ASCII.GetBytes(str + "\r\n");
-        await dest.WriteAsync(buf);
     }
 }

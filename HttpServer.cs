@@ -1,11 +1,8 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
 namespace Httpd.Impl;
-
-public delegate Task AsyncEventHandler<in T>(T e) where T : EventArgs;
 
 public class HttpServer
 {
@@ -82,38 +79,43 @@ public class HttpServer
 
     async Task HandleRequestAsync(HttpContext ctx)
     {
-        var func = (AsyncEventHandler<ContextEventArgs>)_handlers[_onRequestEvent];
+        var request = ctx.Request;
 
-        if (func != null)
-        {
-            var evt = new ContextEventArgs(ctx);
-            await func(evt);
+        var evt = new RequestEventArgs(ctx);
 
-            if (!evt.Handled)
-                ctx.Response.WithCode(HttpStatusCode.NotFound);
-        }
-        else
+        await _onRequest.InvokeAsync(evt);
+
+        if (!evt.Handled)
         {
-            ctx.Response.WithCode(HttpStatusCode.NotImplemented)
-                .WithStringContent($"<div><i>501: Feature Not Implemented</b></i><hr/>{DateTime.Now:F}</div>");
+            ctx.Response.WithCode(HttpStatusCode.NotFound)
+                .WithStringContent($@"
+
+<div>
+    <i>404 - Not found</i> — <b>{request.LocalPath}</b>
+    <br/>
+    <hr/>
+    <p>
+        {DateTime.Now:R} — {Guid.NewGuid():N}
+    </p>
+</div>
+
+");
         }
     }
 
-    readonly object _onRequestEvent = nameof(OnRequest);
-    readonly EventHandlerList _handlers = new();
+    private AsyncEvent<RequestEventArgs> _onRequest = new();
 
-    public event AsyncEventHandler<ContextEventArgs> OnRequest
+    public event AsyncEventHandler<RequestEventArgs> OnRequest
     {
-        add => _handlers.AddHandler(_onRequestEvent, value);
-        remove => _handlers.RemoveHandler(_onRequestEvent, value);
+        add => _onRequest.AddHandler(value);
+        remove => _onRequest.RemoveHandler(value);
     }
 }
 
-public class ContextEventArgs : EventArgs
+public class RequestEventArgs : AsyncEventArgs
 {
     public HttpContext Context { get; }
-    public bool Handled { get; set; }
 
-    public ContextEventArgs(HttpContext ctx)
+    public RequestEventArgs(HttpContext ctx)
         => Context = ctx;
 }

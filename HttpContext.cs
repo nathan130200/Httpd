@@ -97,7 +97,10 @@ public class HttpContext : IDisposable
             throw new HttpRequestException("HTTP url is not well formed.", default, HttpStatusCode.BadRequest);
 
         var localPath = url.LocalPath;
-        var rawQs = url.Query[1..];
+        string rawQs = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(url.Query))
+            rawQs = url.Query[1..];
 
         if (rawQs.Contains('&'))
         {
